@@ -95,10 +95,19 @@ npm run build        # build frontend ไปยัง frontend/dist
 
 GitHub repository: [PaweenSan/pulse-social](https://github.com/PaweenSan/pulse-social)
 
-Production frontend: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · API domain ที่เตรียมไว้: [Backend](https://pulse-social-backend.vercel.app/api/health)
+Production: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · [Backend health](https://pulse-social-backend.vercel.app/api/health)
 
-สถานะ release: frontend เปิดได้ แต่ backend รุ่นแก้ไขยังถูก Vercel หยุดก่อน build เพราะยังยืนยัน commit author ของ private repository ไม่ได้ ต้องเชื่อม GitHub **PaweenSan** กับบัญชี Vercel **eartbhip06-1961** ใน Account Settings → Authentication → Login Connections แล้ว deploy ทั้งสอง projects อีกครั้ง จึงจะใช้งานระบบครบวงจรได้ Source รุ่นแก้ไขผ่าน API tests และ frontend build แล้ว
+Frontend และ backend deploy บน Vercel แยก projects แล้ว เชื่อมกับฐานข้อมูล Turso จริง ตรวจสอบ API health, อ่านโพสต์ และ CORS ของ production ผ่านแล้ว บัญชี GitHub **PaweenSan** เชื่อมกับ Vercel **eartbhip06-1961** เรียบร้อย
 
-การ deploy ครั้งแรกทำผ่าน Vercel CLI การ deploy อัตโนมัติเมื่อ push ยังไม่ได้เชื่อม: หลังเพิ่ม Login Connection แล้ว ให้เชื่อม repository กับทั้งสอง projects เอกสารแก้ปัญหาจาก Vercel: [Commit author / team configuration](https://vercel.com/docs/deployments/troubleshoot-project-collaboration#team-configuration)
+Release ปัจจุบัน deploy ผ่าน **Vercel CLI** การ deploy อัตโนมัติเมื่อ push ยังไม่ได้ตั้งค่า เพราะ Vercel GitHub App ยังไม่มีสิทธิ์เข้าถึง private repository นี้ ไม่กระทบเว็บไซต์ที่ deploy แล้ว หากต้องการเปิด auto-deploy ภายหลัง ให้สิทธิ์เฉพาะ repository นี้แล้วเชื่อมทั้งสอง projects
+
+อัปเดต production ผ่าน CLI จาก root folder หลังทดสอบและตั้ง environment variables แล้ว:
+
+```sh
+vercel link --yes --scope earth4 --project pulse-social-backend
+vercel --prod --yes
+vercel link --yes --scope earth4 --project pulse-social-frontend
+vercel --prod --yes
+```
 
 ไฟล์ `.vercelignore` ป้องกัน `.env`, local database และ build files ไม่ให้อัปโหลดจากเครื่องไปเป็น deployment source ใช้ร่วมกับ `.gitignore` เสมอ
