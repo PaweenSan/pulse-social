@@ -95,8 +95,10 @@ npm run build        # build frontend ไปยัง frontend/dist
 
 GitHub repository: [PaweenSan/pulse-social](https://github.com/PaweenSan/pulse-social)
 
-Production: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · [API health](https://pulse-social-backend.vercel.app/api/health)
+Production frontend: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · API domain ที่เตรียมไว้: [Backend](https://pulse-social-backend.vercel.app/api/health)
 
-การ deploy ครั้งนี้ทำผ่าน Vercel CLI หากต้องการ deploy อัตโนมัติเมื่อ push ให้เชื่อม GitHub account ใน Vercel Login Connections ก่อน แล้วเชื่อม repository กับทั้งสอง projects; repository และ deployment ปัจจุบันใช้งานแยกกันได้
+สถานะ release: frontend เปิดได้ แต่ backend รุ่นแก้ไขยังถูก Vercel หยุดก่อน build เพราะยังยืนยัน commit author ของ private repository ไม่ได้ ต้องเชื่อม GitHub **PaweenSan** กับบัญชี Vercel **eartbhip06-1961** ใน Account Settings → Authentication → Login Connections แล้ว deploy ทั้งสอง projects อีกครั้ง จึงจะใช้งานระบบครบวงจรได้ Source รุ่นแก้ไขผ่าน API tests และ frontend build แล้ว
+
+การ deploy ครั้งแรกทำผ่าน Vercel CLI การ deploy อัตโนมัติเมื่อ push ยังไม่ได้เชื่อม: หลังเพิ่ม Login Connection แล้ว ให้เชื่อม repository กับทั้งสอง projects เอกสารแก้ปัญหาจาก Vercel: [Commit author / team configuration](https://vercel.com/docs/deployments/troubleshoot-project-collaboration#team-configuration)
 
 ไฟล์ `.vercelignore` ป้องกัน `.env`, local database และ build files ไม่ให้อัปโหลดจากเครื่องไปเป็น deployment source ใช้ร่วมกับ `.gitignore` เสมอ
