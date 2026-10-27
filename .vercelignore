@@ -1,0 +1,13 @@
+.git
+.vercel
+**/node_modules
+**/test
+**/tests
+**/dist
+**/.env
+**/.env.*
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.log
+**/.DS_Store

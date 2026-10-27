@@ -94,3 +94,9 @@ npm run build        # build frontend ไปยัง frontend/dist
 เอกสารอ้างอิง: [Express บน Vercel](https://vercel.com/docs/frameworks/backend/express), [Vercel monorepos](https://vercel.com/docs/monorepos), [Drizzle + Turso](https://orm.drizzle.team/docs/sqlite/connect-turso), [Turso บน Vercel](https://docs.turso.tech/integrations/vercel)
 
 GitHub repository: [PaweenSan/pulse-social](https://github.com/PaweenSan/pulse-social)
+
+Production: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · [API health](https://pulse-social-backend.vercel.app/api/health)
+
+การ deploy ครั้งนี้ทำผ่าน Vercel CLI หากต้องการ deploy อัตโนมัติเมื่อ push ให้เชื่อม GitHub account ใน Vercel Login Connections ก่อน แล้วเชื่อม repository กับทั้งสอง projects; repository และ deployment ปัจจุบันใช้งานแยกกันได้
+
+ไฟล์ `.vercelignore` ป้องกัน `.env`, local database และ build files ไม่ให้อัปโหลดจากเครื่องไปเป็น deployment source ใช้ร่วมกับ `.gitignore` เสมอ

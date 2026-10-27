@@ -1,6 +1,6 @@
 import express from 'express';
 import { connectDatabase } from './db.js';
-import { createApp } from './app.js';
+import { createApp } from './create-app.js';
 
 // Vercel detects the Express import and default app export at this entrypoint.
 const app = express();
