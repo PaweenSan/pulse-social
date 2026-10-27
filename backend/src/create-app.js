@@ -2,8 +2,9 @@ import express from 'express';
 import helmet from 'helmet';
 import { randomUUID } from 'node:crypto';
 import { and, or, eq, lt, desc, sql, count } from 'drizzle-orm';
-import { users, sessions, posts, likes, comments, rateLimits } from './schema.js';
+import { users, sessions, posts, postImages, likes, comments, rateLimits } from './schema.js';
 import { hashPassword, verifyPassword, hashToken, newToken } from './auth.js';
+import { readImage } from './image.js';
 
 const DAY = 86400000;
 class HttpError extends Error {
@@ -38,6 +39,7 @@ const authorFields = { id: users.id, name: users.name, username: users.username 
 const postFields = viewerId => ({
   id: posts.id, content: posts.content, createdAt: posts.createdAt, updatedAt: posts.updatedAt,
   author: authorFields,
+  imageUrl: sql`case when exists(select 1 from ${postImages} where ${postImages.postId} = ${posts.id}) then '/api/posts/' || ${posts.id} || '/image' else null end`,
   likeCount: sql`(select count(*) from ${likes} where ${likes.postId} = ${posts.id})`.mapWith(Number),
   commentCount: sql`(select count(*) from ${comments} where ${comments.postId} = ${posts.id})`.mapWith(Number),
   liked: sql`exists(select 1 from ${likes} where ${likes.postId} = ${posts.id} and ${likes.userId} = ${viewerId || ''})`.mapWith(Boolean),
@@ -65,12 +67,11 @@ export function createApp({ db, env = process.env }) {
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
-  app.use(express.json({ limit: '16kb', strict: true }));
-  app.use((req, _res, next) => {
+  const jsonObject = (req, _res, next) => {
     if (req.body !== undefined && (req.body === null || Array.isArray(req.body))) fail(400, 'Expected a JSON object.');
     req.body ||= {};
     next();
-  });
+  };
 
   async function limit(req, res, scope, identity, max, windowMs) {
     const now = Date.now();
@@ -116,7 +117,7 @@ export function createApp({ db, env = process.env }) {
   const findUser = async id => (await db.select(userFields).from(users).where(eq(users.id, id)))[0];
   const findPost = async (id, viewerId) => (await db.select(postFields(viewerId)).from(posts).innerJoin(users, eq(posts.userId, users.id)).where(eq(posts.id, id)))[0];
   const assertPost = async id => {
-    const [post] = await db.select({ id: posts.id, userId: posts.userId }).from(posts).where(eq(posts.id, idInput(id)));
+    const [post] = await db.select({ id: posts.id, userId: posts.userId, hasImage: sql`exists(select 1 from post_images where post_images.post_id = posts.id)`.mapWith(Boolean) }).from(posts).where(eq(posts.id, idInput(id)));
     if (!post) fail(404, 'Post not found.');
     return post;
   };
@@ -128,6 +129,18 @@ export function createApp({ db, env = process.env }) {
     ]);
     return { token, user: await findUser(userId) };
   };
+  // Authenticate and rate-limit before reading the only route that accepts a larger JSON body.
+  app.post('/api/posts', requireAuth, express.json({ limit: '1536kb', strict: true }), jsonObject, async (req, res) => {
+    const image = req.body.image === undefined ? null : readImage(req.body.image);
+    const content = text(req.body.content, 'Post', image ? 0 : 1, 2000);
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const inserts = [db.insert(posts).values({ id, userId: req.userId, content, createdAt: now, updatedAt: now })];
+    if (image) inserts.push(db.insert(postImages).values({ postId: id, ...image }));
+    await db.batch(inserts);
+    res.status(201).json({ post: await findPost(id, req.userId) });
+  });
+  app.use(express.json({ limit: '16kb', strict: true }), jsonObject);
   app.post('/api/auth/register', authLimit, async (req, res) => {
     const name = text(req.body.name, 'Name', 1, 60);
     const username = text(req.body.username, 'Username', 3, 24).toLowerCase();
@@ -203,17 +216,16 @@ export function createApp({ db, env = process.env }) {
     const nextCursor = rows.length > 20 ? Buffer.from(JSON.stringify({ createdAt: last.createdAt, id: last.id })).toString('base64url') : null;
     res.json({ posts: page, nextCursor });
   });
-  app.post('/api/posts', requireAuth, async (req, res) => {
-    const content = text(req.body.content, 'Post', 1, 2000);
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    await db.insert(posts).values({ id, userId: req.userId, content, createdAt: now, updatedAt: now });
-    res.status(201).json({ post: await findPost(id, req.userId) });
+  app.get('/api/posts/:id/image', async (req, res) => {
+    const [image] = await db.select({ bytes: postImages.bytes, mime: postImages.mime }).from(postImages).where(eq(postImages.postId, idInput(req.params.id)));
+    if (!image) fail(404, 'Image not found.');
+    res.set({ 'Content-Type': image.mime, 'Cross-Origin-Resource-Policy': 'cross-origin', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    res.send(Buffer.from(image.bytes));
   });
   app.patch('/api/posts/:id', requireAuth, async (req, res) => {
     const post = await assertPost(req.params.id);
     if (post.userId !== req.userId) fail(403, 'Only the author can edit this post.');
-    await db.update(posts).set({ content: text(req.body.content, 'Post', 1, 2000), updatedAt: new Date().toISOString() }).where(and(eq(posts.id, post.id), eq(posts.userId, req.userId)));
+    await db.update(posts).set({ content: text(req.body.content, 'Post', post.hasImage ? 0 : 1, 2000), updatedAt: new Date().toISOString() }).where(and(eq(posts.id, post.id), eq(posts.userId, req.userId)));
     res.json({ post: await findPost(post.id, req.userId) });
   });
   app.delete('/api/posts/:id', requireAuth, async (req, res) => {

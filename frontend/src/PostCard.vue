@@ -1,17 +1,20 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import Icon from './Icon.vue'
-import { api } from './api.js'
+import { api, apiUrl } from './api.js'
 import { initials, relativeTime } from './utils.js'
 const props = defineProps({ post: Object, user: Object })
 const emit = defineEmits(['updated', 'deleted', 'auth', 'profile'])
 const error = ref(''), busy = ref(false), editing = ref(false), draft = ref(''), confirming = ref(false)
 const commentsOpen = ref(false), comments = ref([]), commentsLoading = ref(false), commentDraft = ref(''), commenting = ref(false)
 const deletingComment = ref('')
+const imageFailed = ref(false)
+const imageSrc = computed(() => apiUrl(props.post.imageUrl))
+watch(() => props.post.imageUrl, () => { imageFailed.value = false })
 const own = computed(() => props.user?.id === props.post.author.id)
 function startEdit() { draft.value = props.post.content; editing.value = true; error.value = '' }
 async function save() {
-  if (!draft.value.trim()) return
+  if (!draft.value.trim() && !props.post.imageUrl) return
   busy.value = true; error.value = ''
   try { const { post } = await api(`/posts/${props.post.id}`, { method: 'PATCH', body: { content: draft.value.trim() } }); emit('updated', post); editing.value = false }
   catch (e) { error.value = e.message } finally { busy.value = false }
@@ -56,8 +59,9 @@ async function removeComment(comment) {
       <div class="author-info"><button class="author-name" @click="emit('profile', post.author.username)">{{ post.author.name }}</button><span>@{{ post.author.username }} <span class="separator">·</span> <time :datetime="post.createdAt" :title="new Date(post.createdAt).toLocaleString()">{{ relativeTime(post.createdAt) }}</time><span v-if="post.updatedAt !== post.createdAt" class="edited"> · edited</span></span></div>
       <div v-if="own && !editing" class="post-management"><button class="icon-button" aria-label="Edit post" title="Edit post" @click="startEdit"><Icon name="edit" :size="17" /></button><button class="icon-button" aria-label="Delete post" title="Delete post" @click="confirming = !confirming"><Icon name="close" :size="18" /></button></div>
     </div>
-    <form v-if="editing" class="edit-post" @submit.prevent="save"><label class="sr-only" :for="`edit-${post.id}`">Edit your post</label><textarea :id="`edit-${post.id}`" v-model="draft" required maxlength="2000" rows="4" :disabled="busy" /><div class="form-actions"><span class="character-count">{{ draft.length }}/2000</span><button type="button" class="button small secondary" :disabled="busy" @click="editing = false">Cancel</button><button class="button small" :disabled="busy || !draft.trim()">{{ busy ? 'Saving…' : 'Save changes' }}</button></div></form>
-    <p v-else class="post-content">{{ post.content }}</p>
+    <form v-if="editing" class="edit-post" @submit.prevent="save"><label class="sr-only" :for="`edit-${post.id}`">Edit your post</label><textarea :id="`edit-${post.id}`" v-model="draft" :required="!post.imageUrl" maxlength="2000" rows="4" :disabled="busy" /><div class="form-actions"><span class="character-count">{{ draft.length }}/2000</span><button type="button" class="button small secondary" :disabled="busy" @click="editing = false">Cancel</button><button class="button small" :disabled="busy || (!draft.trim() && !post.imageUrl)">{{ busy ? 'Saving…' : 'Save changes' }}</button></div></form>
+    <p v-else-if="post.content" class="post-content">{{ post.content }}</p>
+    <figure v-if="post.imageUrl" class="post-photo"><img v-if="imageSrc && !imageFailed" :src="imageSrc" :alt="`Photo shared by ${post.author.name}`" loading="lazy" decoding="async" @error="imageFailed = true" /><figcaption v-else class="photo-unavailable"><Icon name="photo" :size="25" /><span>This photo couldn’t load.</span></figcaption></figure>
     <div v-if="confirming" class="delete-confirm"><span>Delete this post permanently?</span><button class="text-button danger" :disabled="busy" @click="remove">{{ busy ? 'Deleting…' : 'Delete' }}</button><button class="text-button" :disabled="busy" @click="confirming = false">Keep it</button></div>
     <div class="post-actions"><button :class="['post-action', { liked: post.liked }]" :aria-pressed="Boolean(post.liked)" :aria-label="`${post.liked ? 'Unlike' : 'Like'} post, ${post.likeCount} likes`" :disabled="busy" @click="like"><Icon name="heart" :size="19" /><span>{{ post.likeCount }}</span></button><button class="post-action" :aria-expanded="commentsOpen" :aria-controls="`comments-${post.id}`" @click="toggleComments"><Icon name="comment" :size="19" /><span>{{ post.commentCount }}</span><span class="comment-label">{{ post.commentCount === 1 ? 'comment' : 'comments' }}</span></button><span class="post-footnote">A little thought, shared.</span></div>
     <p v-if="error" class="error-message" role="alert">{{ error }}</p>

@@ -1,4 +1,6 @@
+import { postImageUrl } from './utils.js'
 const base = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/$/, '')
+export const apiUrl = path => postImageUrl(path, new URL(base, window.location.origin).href)
 let token = sessionStorage.getItem('pulse.token') || ''
 export function setToken(value) {
   token = value || ''

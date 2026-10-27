@@ -1,6 +1,7 @@
 <script setup>
 defineProps({ name: String, size: { type: Number, default: 20 } })
 const paths = {
+  photo: 'M3 3h18v18H3zM3 16l6-6 5 5 3-3 4 4M17 7h.01',
   pulse: 'M2 13h5l3-9 5 16 3-7h4',
   home: 'm3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
   search: 'm21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',

@@ -4,9 +4,11 @@ import Icon from './Icon.vue'
 import PostCard from './PostCard.vue'
 import { api, hasToken, setToken } from './api.js'
 import { initials, safeWebsite } from './utils.js'
+import { preparePhoto } from './photo.js'
 const user = ref(null), sessionLoading = ref(hasToken()), route = ref(window.location.hash || '#/feed')
 const posts = ref([]), nextCursor = ref(null), loading = ref(false), loadingMore = ref(false), error = ref(''), notice = ref('')
 const searchText = ref(''), searchQuery = ref(''), composer = ref(''), posting = ref(false), composerError = ref(''), composerField = ref(null)
+const photo = ref(null), photoProcessing = ref(false), photoInput = ref(null)
 const profile = ref(null), profilePosts = ref([]), profileLoading = ref(false), profileError = ref(''), profileEditing = ref(false), profileBusy = ref(false)
 const profileForm = ref({ name: '', bio: '', website: '' })
 const auth = ref({ name: '', username: '', email: '', password: '' }), authBusy = ref(false), authError = ref('')
@@ -14,7 +16,7 @@ const routeKind = computed(() => route.value.startsWith('#/u/') ? 'profile' : ro
 const isAuth = computed(() => ['join', 'login'].includes(routeKind.value))
 const ownProfile = computed(() => user.value && profile.value?.id === user.value.id)
 const pageTitle = computed(() => routeKind.value === 'profile' ? 'People of Pulse' : isAuth.value ? 'Your next conversation starts here.' : 'The everyday, connected.')
-let feedRequest = 0, profileRequest = 0
+let feedRequest = 0, profileRequest = 0, photoRequest = 0
 function go(path) {
   const hash = `#/${path}`
   if (window.location.hash === hash) return
@@ -24,7 +26,7 @@ function go(path) {
 function skipToContent() { document.getElementById('main-content')?.focus() }
 function openProfile(username) { go(`u/${encodeURIComponent(username)}`) }
 function onRoute() { route.value = window.location.hash || '#/feed'; window.scrollTo({ top: 0, behavior: 'instant' }) }
-function sessionExpired() { user.value = null; notice.value = 'Your session ended. Sign in again to keep sharing.'; posts.value = posts.value.map(post => ({ ...post, liked: false })); profilePosts.value = profilePosts.value.map(post => ({ ...post, liked: false })) }
+function sessionExpired() { clearPhoto(); user.value = null; notice.value = 'Your session ended. Sign in again to keep sharing.'; posts.value = posts.value.map(post => ({ ...post, liked: false })); profilePosts.value = profilePosts.value.map(post => ({ ...post, liked: false })) }
 async function loadFeed(more = false) {
   if (more && (!nextCursor.value || loadingMore.value)) return
   const request = ++feedRequest
@@ -66,12 +68,32 @@ async function focusComposer() {
   if (!user.value) return go('join')
   go('feed'); await nextTick(); composerField.value?.focus(); composerField.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
+function clearPhoto() {
+  photoRequest++
+  if (photo.value?.url) URL.revokeObjectURL(photo.value.url)
+  photo.value = null; photoProcessing.value = false
+  if (photoInput.value) photoInput.value.value = ''
+}
+async function choosePhoto(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || posting.value) return
+  clearPhoto()
+  const request = photoRequest
+  photoProcessing.value = true; composerError.value = ''
+  try {
+    const result = await preparePhoto(file)
+    if (request !== photoRequest) return
+    photo.value = { image: result.image, url: URL.createObjectURL(result.blob) }
+  } catch (e) { if (request === photoRequest) composerError.value = e.message }
+  finally { if (request === photoRequest) photoProcessing.value = false }
+}
 async function publish() {
-  if (!composer.value.trim()) return
+  if (posting.value || photoProcessing.value || (!composer.value.trim() && !photo.value)) return
   posting.value = true; composerError.value = ''
   try {
-    const { post } = await api('/posts', { method: 'POST', body: { content: composer.value.trim() } })
-    composer.value = ''; notice.value = 'Your thought is out in the world.'
+    const { post } = await api('/posts', { method: 'POST', body: { content: composer.value.trim(), ...(photo.value ? { image: photo.value.image } : {}) } })
+    composer.value = ''; clearPhoto(); notice.value = 'Your thought is out in the world.'
     if (searchQuery.value) { searchText.value = ''; searchQuery.value = ''; await loadFeed() }
     else posts.value.unshift(post)
     user.value = { ...user.value, postCount: (user.value.postCount || 0) + 1 }
@@ -96,7 +118,7 @@ async function submitAuth() {
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }); notice.value = 'You’re signed out. See you around.' }
   catch { notice.value = 'Signed out on this browser. Your server session will expire automatically.' }
-  setToken(''); user.value = null; composer.value = ''; go('feed'); await loadFeed()
+  setToken(''); user.value = null; composer.value = ''; clearPhoto(); go('feed'); await loadFeed()
 }
 function editProfile() { profileForm.value = { name: profile.value.name, bio: profile.value.bio || '', website: profile.value.website || '' }; profileEditing.value = true; profileError.value = '' }
 async function saveProfile() {
@@ -112,7 +134,7 @@ onMounted(async () => {
   window.addEventListener('hashchange', onRoute); window.addEventListener('pulse:session-expired', sessionExpired)
   if (hasToken()) { try { user.value = (await api('/auth/me')).user } catch (e) { if (hasToken()) notice.value = e.message } finally { sessionLoading.value = false } }
 })
-onUnmounted(() => { window.removeEventListener('hashchange', onRoute); window.removeEventListener('pulse:session-expired', sessionExpired) })
+onUnmounted(() => { clearPhoto(); window.removeEventListener('hashchange', onRoute); window.removeEventListener('pulse:session-expired', sessionExpired) })
 </script>
 <template>
   <a class="skip-link" href="#main-content" @click.prevent="skipToContent">Skip to content</a>
@@ -149,7 +171,7 @@ onUnmounted(() => { window.removeEventListener('hashchange', onRoute); window.re
               <div v-if="profile && !profilePosts.length" class="empty-state compact"><Icon name="comment" :size="30" /><h2>{{ ownProfile ? 'Your story starts here.' : 'A quiet corner, for now.' }}</h2><p>{{ ownProfile ? 'Share a first thought with the community.' : 'Their first thought is still on its way.' }}</p><button v-if="ownProfile" class="button small" @click="focusComposer">Write a post<Icon name="arrow" :size="17" /></button></div>
             </template>
             <template v-else>
-              <form v-if="user" class="composer" @submit.prevent="publish"><div class="composer-main"><span class="avatar">{{ initials(user.name) }}</span><label class="sr-only" for="new-post">What’s on your mind?</label><textarea id="new-post" ref="composerField" v-model="composer" maxlength="2000" rows="3" required :disabled="posting" :placeholder="`What’s on your mind, ${user.name.split(' ')[0]}?`" /></div><div class="composer-footer"><span><Icon name="globe" :size="15" />Visible to everyone<span class="character-count" v-if="composer.length"> · {{ composer.length }}/2000</span></span><button class="button small" :disabled="posting || !composer.trim()">{{ posting ? 'Sharing…' : 'Share thought' }}<Icon name="arrow" :size="17" /></button></div><p v-if="composerError" class="error-message" role="alert">{{ composerError }}</p></form>
+              <form v-if="user" class="composer" @submit.prevent="publish"><div class="composer-main"><span class="avatar">{{ initials(user.name) }}</span><label class="sr-only" for="new-post">What’s on your mind?</label><textarea id="new-post" ref="composerField" v-model="composer" maxlength="2000" rows="3" :disabled="posting" :placeholder="`What’s on your mind, ${user.name.split(' ')[0]}?`" /></div><div v-if="photo || photoProcessing" class="photo-preview"><img v-if="photo" :src="photo.url" alt="Selected photo ready to share" /><p v-else class="photo-progress" role="status"><span class="loading-line" />Getting your photo ready…</p><button type="button" class="remove-photo" :disabled="posting" :aria-label="photoProcessing ? 'Cancel photo preparation' : 'Remove selected photo'" @click="clearPhoto"><Icon name="close" :size="17" /></button></div><div class="composer-footer"><div class="composer-tools"><input ref="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden :disabled="posting" @change="choosePhoto" /><button type="button" class="attach-photo" :disabled="posting" @click="photoInput?.click()"><Icon name="photo" :size="17" />{{ photo || photoProcessing ? 'Change photo' : 'Add photo' }}</button><span class="composer-visibility"><Icon name="globe" :size="13" />Visible to everyone<span v-if="composer.length"> · {{ composer.length }}/2000</span></span></div><button class="button small" :disabled="posting || photoProcessing || (!composer.trim() && !photo)">{{ posting ? 'Sharing…' : 'Share thought' }}<Icon name="arrow" :size="17" /></button></div><p v-if="composerError" class="error-message" role="alert">{{ composerError }}</p></form>
               <div v-else class="guest-composer"><span class="avatar guest-avatar"><Icon name="plus" :size="23" /></span><div><h2>{{ sessionLoading ? 'Finding your corner…' : 'Your voice belongs here.' }}</h2><p>Something on your mind? Let it out.</p></div><a v-if="!sessionLoading" class="button small" href="#/join">Join Pulse<Icon name="arrow" :size="17" /></a></div>
               <div class="feed-toolbar"><div class="feed-tabs"><span class="selected-tab">{{ searchQuery ? 'Search results' : 'The latest' }}<span class="tiny-dot" /></span></div><span class="feed-sort"><Icon name="sun" :size="15" />Fresh perspectives</span></div>
               <div v-if="searchQuery" class="search-summary"><span>Thoughts matching “{{ searchQuery }}”</span><button class="text-button" @click="clearSearch">Clear search<Icon name="close" :size="14" /></button></div>

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, primaryKey, blob } from 'drizzle-orm/sqlite-core';
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
@@ -22,6 +22,12 @@ export const posts = sqliteTable('posts', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, table => [index('posts_feed_idx').on(table.createdAt, table.id), index('posts_user_idx').on(table.userId)]);
+// ponytail: one image up to 1 MiB per post in Turso; move to object storage when media volume grows.
+export const postImages = sqliteTable('post_images', {
+  postId: text('post_id').primaryKey().references(() => posts.id, { onDelete: 'cascade' }),
+  bytes: blob('bytes', { mode: 'buffer' }).notNull(),
+  mime: text('mime').notNull(),
+});
 export const likes = sqliteTable('likes', {
   postId: text('post_id').notNull().references(() => posts.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
