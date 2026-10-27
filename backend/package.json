@@ -1,0 +1,22 @@
+{
+  "name": "pulse-social-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/dev.js",
+    "start": "node --env-file-if-exists=.env src/dev.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env src/migrate.js",
+    "seed": "node --env-file-if-exists=.env src/seed.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "drizzle-orm": "^0.45.4",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0"
+  },
+  "devDependencies": { "drizzle-kit": "^0.31.5" }
+}
