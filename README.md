@@ -99,6 +99,8 @@ Production: [Pulse Social](https://pulse-social-frontend-rust.vercel.app) · [Ba
 
 Frontend และ backend deploy บน Vercel แยก projects แล้ว เชื่อมกับฐานข้อมูล Turso จริง ตรวจสอบ API health, อ่านโพสต์ และ CORS ของ production ผ่านแล้ว บัญชี GitHub **PaweenSan** เชื่อมกับ Vercel **eartbhip06-1961** เรียบร้อย
 
+ตรวจสอบบน browser ของ production แล้ว: เข้าสู่ระบบ สร้าง/แก้ไขโพสต์ Like/Unlike Comment แก้ไขโปรไฟล์ ค้นหา ออกจากระบบ และข้อมูลยังคงอยู่หลัง reload; หน้าจอมือถือ 320/390px ไม่มีเนื้อหาล้นแนวนอน ไม่พบ browser errors บัญชีและเนื้อหาที่ใช้ตรวจสอบถูกลบออกหลังทดสอบ
+
 Release ปัจจุบัน deploy ผ่าน **Vercel CLI** การ deploy อัตโนมัติเมื่อ push ยังไม่ได้ตั้งค่า เพราะ Vercel GitHub App ยังไม่มีสิทธิ์เข้าถึง private repository นี้ ไม่กระทบเว็บไซต์ที่ deploy แล้ว หากต้องการเปิด auto-deploy ภายหลัง ให้สิทธิ์เฉพาะ repository นี้แล้วเชื่อมทั้งสอง projects
 
 อัปเดต production ผ่าน CLI จาก root folder หลังทดสอบและตั้ง environment variables แล้ว:
