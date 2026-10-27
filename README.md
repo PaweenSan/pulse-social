@@ -108,6 +108,8 @@ Frontend และ backend deploy บน Vercel แยก projects แล้ว 
 
 ตรวจสอบบน browser ของ production แล้ว: เข้าสู่ระบบ สร้าง/แก้ไขโพสต์ Like/Unlike Comment แก้ไขโปรไฟล์ ค้นหา ออกจากระบบ และข้อมูลยังคงอยู่หลัง reload; หน้าจอมือถือ 320/390px ไม่มีเนื้อหาล้นแนวนอน ไม่พบ browser errors บัญชีและเนื้อหาที่ใช้ตรวจสอบถูกลบออกหลังทดสอบ
 
+ฟังก์ชันรูปภาพตรวจสอบด้วยไฟล์ JPEG จริงบน production ทั้งโพสต์พร้อมข้อความและรูปอย่างเดียว รูปยังแสดงหลัง reload/หน้าโปรไฟล์และบนมือถือ 390px; ทดสอบรูป PNG ขนาด 1 MiB เต็มผ่าน API แล้วได้ binary กลับตรงทุก byte การลบโพสต์ลบรูปตามและ URL รูปตอบ 404 ข้อมูลทดสอบทั้งหมดถูกลบโดยไม่เปลี่ยนข้อมูลผู้ใช้อื่น
+
 Release ปัจจุบัน deploy ผ่าน **Vercel CLI** การ deploy อัตโนมัติเมื่อ push ยังไม่ได้ตั้งค่า เพราะ Vercel GitHub App ยังไม่มีสิทธิ์เข้าถึง private repository นี้ ไม่กระทบเว็บไซต์ที่ deploy แล้ว หากต้องการเปิด auto-deploy ภายหลัง ให้สิทธิ์เฉพาะ repository นี้แล้วเชื่อมทั้งสอง projects
 
 อัปเดต production ผ่าน CLI จาก root folder หลังทดสอบและตั้ง environment variables แล้ว:
